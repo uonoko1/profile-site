@@ -1,0 +1,177 @@
+@import "tailwindcss";
+
+/*
+ * 寒色・暗色を基調にする。粒子場が青白いので、地は限りなくニュートラルに寄せ、
+ * 彩度は粒子とアクセントだけが持つようにしている。
+ */
+:root {
+  --bg: #07090c;
+  --bg-raised: #0c1015;
+  --fg: #e8edf2;
+  --fg-muted: #8b98a8;
+  --fg-faint: #5a6674;
+  --rule: #1b222c;
+  --accent: #7dd3fc;
+
+  /*
+   * 欧文を Inter、和文を Noto Sans JP に振り分ける。
+   * 英数字が和文フォントの字形にならないよう Inter を先に置く。
+   */
+  --font-sans-stack: "Inter", "Noto Sans JP", system-ui, sans-serif;
+  --font-mono-stack: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-raised: var(--bg-raised);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-faint: var(--fg-faint);
+  --color-rule: var(--rule);
+  --color-accent: var(--accent);
+  --font-sans: var(--font-sans-stack);
+  --font-mono: var(--font-mono-stack);
+}
+
+html {
+  scroll-behavior: smooth;
+  /* 和文の行組みを崩さないための基本設定 */
+  font-feature-settings: "palt" 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+}
+
+/* 和文の本文。行長が伸びても読めるよう行間を広めに取る */
+.prose-ja {
+  line-height: 2;
+  letter-spacing: 0.02em;
+}
+
+/* B案の骨格。左のヘアラインが全セクションを貫き、組版の基準線になる */
+.rule-left {
+  border-left: 1px solid var(--rule);
+}
+
+::selection {
+  background: var(--accent);
+  color: #07090c;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* 記事本文。Markdown から起こした HTML にだけ効かせる */
+.post-body {
+  font-size: 0.95rem;
+  color: var(--fg);
+  /*
+   * 記事によっては区切りのない英数字の長い連なり(識別子の列挙など)が出る。
+   * 折り返し先がないと狭い画面で横スクロールが発生するため、
+   * どこでも折れるようにしておく。コードブロックは下で個別に戻す。
+   */
+  overflow-wrap: anywhere;
+}
+/* コードは折り返さず、pre 側の横スクロールで見せる */
+.post-body pre,
+.post-body pre * {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+.post-body > * + * {
+  margin-top: 1.6em;
+}
+.post-body h1,
+.post-body h2,
+.post-body h3,
+.post-body h4 {
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.5;
+  scroll-margin-top: 2rem;
+}
+.post-body h1 { font-size: 1.5rem; }
+.post-body h2 {
+  font-size: 1.2rem;
+  margin-top: 3rem;
+  padding-top: 1.6rem;
+  border-top: 1px solid var(--rule);
+}
+.post-body h3 { font-size: 1.05rem; margin-top: 2.4rem; }
+.post-body h4 { font-size: 0.95rem; color: var(--fg-muted); }
+.post-body a {
+  color: var(--accent);
+  text-underline-offset: 3px;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.post-body a:hover { text-decoration-color: var(--accent); }
+.post-body strong { font-weight: 600; }
+.post-body ul,
+.post-body ol { padding-left: 1.4em; }
+.post-body ul { list-style: disc; }
+.post-body ol { list-style: decimal; }
+.post-body li::marker { color: var(--fg-faint); }
+.post-body li + li { margin-top: 0.5em; }
+.post-body blockquote {
+  border-left: 2px solid var(--rule);
+  padding-left: 1.2em;
+  color: var(--fg-muted);
+}
+.post-body img {
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+}
+.post-body hr { border: 0; border-top: 1px solid var(--rule); }
+
+/* 本文中のコード。行長が長い記事があるため横スクロールを許す */
+.post-body :not(pre) > code {
+  font-family: var(--font-mono-stack);
+  font-size: 0.85em;
+  background: var(--bg-raised);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 0.1em 0.35em;
+  overflow-wrap: anywhere;
+}
+.post-body pre {
+  overflow-x: auto;
+  padding: 1.1rem 1.2rem;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  font-size: 0.82rem;
+  line-height: 1.75;
+  /* shiki のテーマ色より地の色を優先する */
+  background: var(--bg-raised) !important;
+}
+.post-body pre code {
+  font-family: var(--font-mono-stack);
+}
+
+/* 表は記事によっては横に広い */
+.post-body table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  display: block;
+  overflow-x: auto;
+}
+.post-body th,
+.post-body td {
+  border: 1px solid var(--rule);
+  padding: 0.5em 0.8em;
+  text-align: left;
+}
+.post-body th { color: var(--fg-muted); font-weight: 500; }
