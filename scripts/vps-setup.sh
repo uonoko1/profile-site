@@ -23,10 +23,13 @@ ATTIC="/var/backups/daichisakai-${STAMP}"
 
 # 何度実行しても同じ結果になるようにする。
 # 既に当たっている手順は飛ばし、バックアップも無駄に増やさない。
+#
+# 「適用済みか」は目印の有無ではなく、書き込む内容と実物の差で判定する。
+# 目印で見ていると、設定を直してもスキップされて反映されない。
+NGINX_VERSION="2026-09-21.2"   # 設定を変えたらここも上げる
 NGINX_CHANGED=0
 
-# /api のプロキシが残っていれば未適用とみなす
-if sudo grep -q "proxy_pass" "$CONF" 2>/dev/null; then
+if ! sudo grep -q "config-version: ${NGINX_VERSION}" "$CONF" 2>/dev/null; then
     NGINX_CHANGED=1
 fi
 
@@ -38,7 +41,10 @@ echo "==> 現在の設定をバックアップ: ${BACKUP}"
 sudo cp -a "$CONF" "$BACKUP"
 
 echo "==> 新しい設定を書き出す"
-sudo tee "$CONF" > /dev/null <<'NGINX'
+{
+# 先頭に版を書いておく。次回の実行はこれを見て差分を判断する。
+echo "# config-version: ${NGINX_VERSION}"
+cat <<'NGINX'
 # daichisakai.net (staging / production)
 #
 # 静的サイト。アプリケーションサーバーは無い。
@@ -71,9 +77,12 @@ server {
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     add_header Cache-Control $daichisakai_cache always;
 
-    # /blog/foo/ は /blog/foo/index.html を返す。無ければ 404 ページ
+    # /blog/foo/ は /blog/foo/index.html を返す。
+    # 最後を =404 にして本当の 404 を返させる。ここをファイル名にすると
+    # nginx はそれを 200 で配ってしまい、存在しない URL が無限に
+    # インデックスされうる。
     location / {
-        try_files $uri $uri/ $uri/index.html /404.html;
+        try_files $uri $uri/ $uri/index.html =404;
     }
 
     error_page 404 /404.html;
@@ -103,7 +112,7 @@ server {
     add_header Cache-Control $daichisakai_cache always;
 
     location / {
-        try_files $uri $uri/ $uri/index.html /404.html;
+        try_files $uri $uri/ $uri/index.html =404;
     }
 
     error_page 404 /404.html;
@@ -139,6 +148,7 @@ server {
     return 404; # managed by Certbot
 }
 NGINX
+} | sudo tee "$CONF" > /dev/null
 
 fi  # NGINX_CHANGED
 
