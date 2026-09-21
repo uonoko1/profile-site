@@ -127,6 +127,30 @@ server {
 }
 NGINX
 
+# ---- 旧サイトの残骸を片付ける ------------------------------------------
+#
+# 旧構成は githubactions ユーザーでデプロイしていた。新しい配信は ubuntu が
+# 行うため、rsync --delete が旧ファイルを消せず (Permission denied)、
+# 新旧が混ざったまま配信される。所有者ごと退避しておく。
+#
+# 中身は MyPortfolio リポジトリと VPS の frontend/build に残っているが、
+# ここでも念のため退避してから消す。
+
+for ROOT in /var/www/staging.daichisakai.net /var/www/daichisakai.net; do
+    STALE_COUNT=$(sudo find "$ROOT" -user githubactions 2>/dev/null | wc -l)
+    if [[ "$STALE_COUNT" -gt 0 ]]; then
+        echo "==> $(basename "$ROOT") の旧ファイル ${STALE_COUNT} 件を退避"
+        DEST="$ATTIC/www-old"
+        sudo mkdir -p "$DEST"
+        # 所有者が githubactions のものだけを固めてから消す
+        sudo find "$ROOT" -user githubactions -mindepth 1 -printf '%P\0' 2>/dev/null \
+            | sudo tar -C "$ROOT" --null -T - --no-recursion \
+                  -czf "$DEST/$(basename "$ROOT").tar.gz" 2>/dev/null || true
+        sudo find "$ROOT" -user githubactions -mindepth 1 -depth -delete 2>/dev/null || true
+        echo "    退避先: $DEST/$(basename "$ROOT").tar.gz"
+    fi
+done
+
 # ---- backlog.daichisakai.net を止める ----------------------------------
 #
 # 2024-02 以降まったく触られておらず、不要との判断。

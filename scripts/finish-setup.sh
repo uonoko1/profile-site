@@ -94,9 +94,9 @@ echo "    (5010/5011 への /api プロキシを外す。該当プロセスは�
 # スクリプトを先に置いてから、端末付きで実行する。
 # 'bash -s' < file だと stdin がファイルに占有され、ssh -t が端末を割り当てられず
 # sudo がパスワードを聞けない。
-scp -q scripts/vps-setup.sh "$VPS:/tmp/vps-setup.sh"
-ssh -t "$VPS" 'bash /tmp/vps-setup.sh; rc=$?; rm -f /tmp/vps-setup.sh; exit $rc'
-ok "nginx を更新"
+scp -q scripts/vps-setup.sh scripts/cleanup-old-webroot.sh "$VPS:/tmp/"
+ssh -t "$VPS" 'bash /tmp/vps-setup.sh && bash /tmp/cleanup-old-webroot.sh; rc=$?; rm -f /tmp/vps-setup.sh /tmp/cleanup-old-webroot.sh; exit $rc'
+ok "nginx を更新し、旧サイトの残骸を片付けた"
 
 # ---- 4. staging へ -----------------------------------------------------
 say "staging へデプロイ"

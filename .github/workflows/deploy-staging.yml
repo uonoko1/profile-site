@@ -36,12 +36,20 @@ jobs:
 
       - name: Rsync to staging
         run: |
-          rsync -az --delete \
+          # --omit-dir-times: 配信ディレクトリ自体の所有者が deploy ユーザーと
+          # 異なる場合に、mtime の設定だけで失敗するのを避ける
+          rsync -az --delete --omit-dir-times \
             -e "ssh -i ~/.ssh/id_ed25519" \
             dist/ "${{ secrets.USER }}@${{ secrets.HOST }}:/var/www/staging.daichisakai.net/"
 
       - name: Verify
         run: |
-          code=$(curl -sS -o /dev/null -w '%{http_code}' https://staging.daichisakai.net/)
-          echo "staging returned $code"
-          test "$code" = "200"
+          fail=0
+          for path in / /blog/ /blog/scala-heap-dump-analysis/; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' "https://staging.daichisakai.net${path}")
+            printf '%-36s %s\n' "$path" "$code"
+            [ "$code" = "200" ] || fail=1
+          done
+          # トップだけ 200 でも、配信物が新旧混ざっていれば下層が 500 になる。
+          # 記事ページまで確かめないと、その状態を成功として通してしまう。
+          exit $fail
