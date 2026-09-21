@@ -21,6 +21,19 @@ STAMP=$(date +%Y%m%d-%H%M%S)
 BACKUP="/etc/nginx/sites-available/daichisakai.net.conf.bak-${STAMP}"
 ATTIC="/var/backups/daichisakai-${STAMP}"
 
+# 何度実行しても同じ結果になるようにする。
+# 既に当たっている手順は飛ばし、バックアップも無駄に増やさない。
+NGINX_CHANGED=0
+
+# /api のプロキシが残っていれば未適用とみなす
+if sudo grep -q "proxy_pass" "$CONF" 2>/dev/null; then
+    NGINX_CHANGED=1
+fi
+
+if [[ "$NGINX_CHANGED" -eq 0 ]]; then
+    echo "==> nginx の設定は適用済み (スキップ)"
+else
+
 echo "==> 現在の設定をバックアップ: ${BACKUP}"
 sudo cp -a "$CONF" "$BACKUP"
 
@@ -127,6 +140,8 @@ server {
 }
 NGINX
 
+fi  # NGINX_CHANGED
+
 # ---- 旧サイトの残骸を片付ける ------------------------------------------
 #
 # 旧構成は githubactions ユーザーでデプロイしていた。新しい配信は ubuntu が
@@ -137,17 +152,28 @@ NGINX
 # ここでも念のため退避してから消す。
 
 for ROOT in /var/www/staging.daichisakai.net /var/www/daichisakai.net; do
-    STALE_COUNT=$(sudo find "$ROOT" -user githubactions 2>/dev/null | wc -l)
+    NAME=$(basename "$ROOT")
+    STALE_COUNT=$(sudo find "$ROOT" -user githubactions -mindepth 1 2>/dev/null | wc -l)
     if [[ "$STALE_COUNT" -gt 0 ]]; then
-        echo "==> $(basename "$ROOT") の旧ファイル ${STALE_COUNT} 件を退避"
+        echo "==> ${NAME} の旧ファイル ${STALE_COUNT} 件を退避して削除"
         DEST="$ATTIC/www-old"
         sudo mkdir -p "$DEST"
         # 所有者が githubactions のものだけを固めてから消す
         sudo find "$ROOT" -user githubactions -mindepth 1 -printf '%P\0' 2>/dev/null \
             | sudo tar -C "$ROOT" --null -T - --no-recursion \
-                  -czf "$DEST/$(basename "$ROOT").tar.gz" 2>/dev/null || true
+                  -czf "$DEST/${NAME}.tar.gz" 2>/dev/null || true
         sudo find "$ROOT" -user githubactions -mindepth 1 -depth -delete 2>/dev/null || true
-        echo "    退避先: $DEST/$(basename "$ROOT").tar.gz"
+        echo "    退避先: $DEST/${NAME}.tar.gz"
+    else
+        echo "==> ${NAME} に旧ファイルは無い"
+    fi
+
+    # 配信ディレクトリ自体を deploy ユーザーが書ける状態にしておく。
+    # ここが揃っていないと rsync が mtime の設定で失敗する。
+    if [[ "$(stat -c '%U' "$ROOT")" != "ubuntu" ]]; then
+        sudo chown ubuntu:deploygroup "$ROOT"
+        sudo chmod 775 "$ROOT"
+        echo "    ${NAME} の所有者を ubuntu:deploygroup に変更"
     fi
 done
 
@@ -194,7 +220,7 @@ fi
 echo "==> 設定を検証"
 if ! sudo nginx -t; then
     echo "!! 検証に失敗した。元の設定へ戻す"
-    sudo cp -a "$BACKUP" "$CONF"
+    [[ -f "$BACKUP" ]] && sudo cp -a "$BACKUP" "$CONF"
     if [[ -f "$ATTIC/backlog.daichisakai.conf" ]]; then
         sudo cp -a "$ATTIC/backlog.daichisakai.conf" /etc/nginx/sites-available/
         sudo ln -sf /etc/nginx/sites-available/backlog.daichisakai.conf "$BACKLOG_CONF"
@@ -208,11 +234,14 @@ sudo systemctl reload nginx
 
 echo
 echo "完了。"
-echo "  nginx 設定のバックアップ: ${BACKUP}"
+[[ -f "$BACKUP" ]] && echo "  nginx 設定のバックアップ: ${BACKUP}"
 if [[ -d "$ATTIC" ]]; then
-    echo "  backlog の退避先:         ${ATTIC}"
+    echo "  退避先: ${ATTIC}"
     echo "    (中身を確認して不要なら sudo rm -rf ${ATTIC})"
 fi
-echo
-echo "元に戻す場合:"
-echo "  sudo cp ${BACKUP} ${CONF} && sudo nginx -t && sudo systemctl reload nginx"
+if [[ -f "$BACKUP" ]]; then
+    echo
+    echo "元に戻す場合:"
+    echo "  sudo cp ${BACKUP} ${CONF} && sudo nginx -t && sudo systemctl reload nginx"
+fi
+exit 0

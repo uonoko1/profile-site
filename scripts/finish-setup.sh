@@ -88,36 +88,57 @@ gh secret set USER            --repo "$OWNER/$REPO" --body "$(ssh -G "$VPS" | aw
 gh secret set HOST            --repo "$OWNER/$REPO" --body "$(ssh -G "$VPS" | awk '/^hostname /{print $2}')"
 ok "SSH_PRIVATE_KEY / USER / HOST を登録"
 
-# ---- 3. VPS の nginx (sudo はここだけ) ---------------------------------
-say "VPS の nginx 設定を更新  <- sudo のパスワードを聞かれる"
-echo "    (5010/5011 への /api プロキシを外す。該当プロセスはもう無い)"
+# ---- 3. VPS 側の作業 (sudo はここだけ) ---------------------------------
+say "VPS を整える  <- sudo のパスワードを聞かれる"
+echo "    - /api のプロキシを外す (5010/5011 のプロセスはもう無い)"
+echo "    - backlog.daichisakai.net の配信を止める"
+echo "    - 旧サイトの残骸を退避して消す"
 # スクリプトを先に置いてから、端末付きで実行する。
 # 'bash -s' < file だと stdin がファイルに占有され、ssh -t が端末を割り当てられず
 # sudo がパスワードを聞けない。
-scp -q scripts/vps-setup.sh scripts/cleanup-old-webroot.sh "$VPS:/tmp/"
-ssh -t "$VPS" 'bash /tmp/vps-setup.sh && bash /tmp/cleanup-old-webroot.sh; rc=$?; rm -f /tmp/vps-setup.sh /tmp/cleanup-old-webroot.sh; exit $rc'
-ok "nginx を更新し、旧サイトの残骸を片付けた"
+scp -q scripts/vps-setup.sh "$VPS:/tmp/vps-setup.sh"
+ssh -t "$VPS" 'bash /tmp/vps-setup.sh; rc=$?; rm -f /tmp/vps-setup.sh; exit $rc'
+ok "VPS を更新"
 
 # ---- 4. staging へ -----------------------------------------------------
 say "staging へデプロイ"
+DEPLOYED=0
 if gh workflow run deploy-staging.yml --repo "$OWNER/$REPO" 2>/dev/null; then
     echo "    GitHub Actions を起動した。完了を待つ..."
     sleep 10
     RUN_ID=$(gh run list --repo "$OWNER/$REPO" --workflow deploy-staging.yml \
                --limit 1 --json databaseId --jq '.[0].databaseId')
-    gh run watch --repo "$OWNER/$REPO" --exit-status "$RUN_ID" || true
-else
-    echo "    Actions が使えないので、ここから直接送る"
-    pnpm install --frozen-lockfile
-    pnpm build
-    rsync -az --delete dist/ "$VPS:/var/www/staging.daichisakai.net/"
+    if gh run watch --repo "$OWNER/$REPO" --exit-status "$RUN_ID"; then
+        DEPLOYED=1
+    else
+        echo
+        echo "    Actions が失敗した。ここから直接送って続ける"
+        echo "    (失敗の内容: gh run view $RUN_ID --log-failed)"
+    fi
 fi
 
+if [[ "$DEPLOYED" -eq 0 ]]; then
+    pnpm install --frozen-lockfile
+    pnpm build
+    rsync -az --delete --omit-dir-times dist/ "$VPS:/var/www/staging.daichisakai.net/"
+    ok "手元から直接デプロイ"
+fi
+
+# ---- 5. 確認 -----------------------------------------------------------
+# トップだけ見ても、新旧が混ざっていると下層で 500 になる。記事まで確かめる。
 say "確認"
+FAILED=0
 for path in / /blog/ /blog/scala-heap-dump-analysis/; do
-    code=$(curl -sS -o /dev/null -w '%{http_code}' "https://staging.daichisakai.net${path}")
+    code=$(curl -sS -o /dev/null -w '%{http_code}' "https://staging.daichisakai.net${path}" || echo 000)
     printf "    %-38s %s\n" "$path" "$code"
+    [[ "$code" == "200" ]] || FAILED=1
 done
+
+if [[ "$FAILED" -ne 0 ]]; then
+    echo
+    echo "!! staging が期待どおりに返っていない。本番へは進まないこと。"
+    exit 1
+fi
 
 cat <<'DONE'
 
