@@ -54,11 +54,33 @@ ok "main を push"
 
 # ---- 2. secrets --------------------------------------------------------
 say "デプロイ用の secrets を登録"
-KEY=~/.ssh/id_ed25519
+
+# GitHub Actions 用に専用の鍵を持つ。
+# 手元の個人鍵を使い回さない — 漏れたときの影響範囲を分けておきたいのと、
+# 鍵を入れ替えるときにこのリポジトリだけで済むようにするため。
+KEY=~/.ssh/deploy-"$REPO"
 if [[ ! -f "$KEY" ]]; then
-    echo "  $KEY が無いので、デプロイ用の鍵を作る"
-    ssh-keygen -t ed25519 -N "" -f "$KEY" -C "github-actions@$REPO"
-    ssh-copy-id -i "$KEY.pub" "$VPS"
+    echo "    デプロイ専用の鍵を作る: $KEY"
+    ssh-keygen -q -t ed25519 -N "" -f "$KEY" -C "github-actions@$REPO"
+fi
+
+# VPS 側に登録する。自分が普段使っている鍵で入って追記する
+# (ssh-copy-id は既定の鍵を探してしまうので、接続は ssh に任せる)。
+PUB=$(cat "$KEY.pub")
+if ssh "$VPS" "grep -qF '$PUB' ~/.ssh/authorized_keys 2>/dev/null"; then
+    ok "VPS には登録済み"
+else
+    ssh "$VPS" "mkdir -p ~/.ssh && chmod 700 ~/.ssh && printf '%s\n' '$PUB' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
+    ok "VPS の authorized_keys に追加"
+fi
+
+# 登録した鍵だけで入れることを、ここで実際に確かめる。
+# (前回はこの確認が無く、Actions 側で初めて publickey 拒否に気づいた)
+if ssh -i "$KEY" -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=10 "$VPS" true 2>/dev/null; then
+    ok "デプロイ鍵での接続を確認"
+else
+    echo "!! デプロイ鍵で $VPS に入れない。secrets を登録しても Actions は失敗する"
+    exit 1
 fi
 
 gh secret set SSH_PRIVATE_KEY --repo "$OWNER/$REPO" --body "$(base64 -w0 < "$KEY")"
