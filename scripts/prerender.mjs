@@ -54,6 +54,35 @@ for (const route of routes) {
   console.log(`  ${route} -> ${path.relative(dist, outPath)}`);
 }
 
+// 検索エンジン向けの sitemap と robots.txt。
+// 404 は除く (noindex を付けてある)。
+const SITE = "https://daichisakai.net";
+const urls = routes.filter((r) => r !== "/404");
+const sitemap =
+  '<?xml version="1.0" encoding="UTF-8"?>\n' +
+  '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
+  urls
+    .map((r) => {
+      const loc = r === "/" ? `${SITE}/` : `${SITE}${r}/`;
+      // 記事は執筆日を lastmod にする
+      const post = posts.find((p) => `/blog/${p.slug}` === r);
+      const lastmod = post ? (post.updated ?? post.date) : null;
+      return (
+        `  <url>\n    <loc>${loc}</loc>\n` +
+        (lastmod ? `    <lastmod>${lastmod}</lastmod>\n` : "") +
+        "  </url>"
+      );
+    })
+    .join("\n") +
+  "\n</urlset>\n";
+fs.writeFileSync(path.join(dist, "sitemap.xml"), sitemap);
+
+fs.writeFileSync(
+  path.join(dist, "robots.txt"),
+  `User-agent: *\nAllow: /\n\nSitemap: ${SITE}/sitemap.xml\n`,
+);
+console.log(`\nwrote sitemap.xml (${urls.length} urls) and robots.txt`);
+
 // 記事の画像を配信パスへ配置する
 const assetsSrc = path.join(root, "content/posts/assets");
 if (fs.existsSync(assetsSrc)) {

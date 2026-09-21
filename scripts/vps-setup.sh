@@ -26,7 +26,7 @@ ATTIC="/var/backups/daichisakai-${STAMP}"
 #
 # 「適用済みか」は目印の有無ではなく、書き込む内容と実物の差で判定する。
 # 目印で見ていると、設定を直してもスキップされて反映されない。
-NGINX_VERSION="2026-09-21.2"   # 設定を変えたらここも上げる
+NGINX_VERSION="2026-09-21.3"   # 設定を変えたらここも上げる
 NGINX_CHANGED=0
 
 if ! sudo grep -q "config-version: ${NGINX_VERSION}" "$CONF" 2>/dev/null; then
@@ -76,6 +76,15 @@ server {
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     add_header Cache-Control $daichisakai_cache always;
+
+    # 配信物の robots.txt は本番向け (Allow: /) なので staging では差し替える。
+    # ヘッダだけでも防げるが、ファイルの中身と食い違っていると紛らわしい。
+    # location 内で add_header を書くと継承が切れるため、必要な分を書き直す。
+    location = /robots.txt {
+        add_header X-Robots-Tag "noindex, nofollow" always;
+        add_header Content-Type "text/plain" always;
+        return 200 "User-agent: *\nDisallow: /\n";
+    }
 
     # /blog/foo/ は /blog/foo/index.html を返す。
     # 最後を =404 にして本当の 404 を返させる。ここをファイル名にすると

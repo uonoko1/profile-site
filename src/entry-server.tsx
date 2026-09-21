@@ -30,6 +30,11 @@ function headFor(url: string) {
       author: { "@type": "Person", name: site.name },
       mainEntityOfPage: canonical,
     };
+  } else if (url === "/404") {
+    title = `見つかりません — ${site.name}`;
+    description = "指定されたページは存在しません。";
+    canonical = `${site.url}/`;
+    ogType = "website";
   } else if (url === "/blog") {
     title = `書いたもの — ${site.name}`;
     description = "実装で詰まったところと、その解き方の記録。";
@@ -50,6 +55,8 @@ function headFor(url: string) {
 
   const tags = [
     `<title>${esc(title)}</title>`,
+    // 404 は検索結果に載せない
+    ...(url === "/404" ? ['<meta name="robots" content="noindex" />'] : []),
     `<meta name="description" content="${esc(description)}" />`,
     `<link rel="canonical" href="${esc(canonical)}" />`,
     `<meta property="og:type" content="${esc(ogType)}" />`,
