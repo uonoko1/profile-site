@@ -69,7 +69,11 @@ ok "SSH_PRIVATE_KEY / USER / HOST を登録"
 # ---- 3. VPS の nginx (sudo はここだけ) ---------------------------------
 say "VPS の nginx 設定を更新  <- sudo のパスワードを聞かれる"
 echo "    (5010/5011 への /api プロキシを外す。該当プロセスはもう無い)"
-ssh -t "$VPS" 'bash -s' < scripts/vps-setup.sh
+# スクリプトを先に置いてから、端末付きで実行する。
+# 'bash -s' < file だと stdin がファイルに占有され、ssh -t が端末を割り当てられず
+# sudo がパスワードを聞けない。
+scp -q scripts/vps-setup.sh "$VPS:/tmp/vps-setup.sh"
+ssh -t "$VPS" 'bash /tmp/vps-setup.sh; rc=$?; rm -f /tmp/vps-setup.sh; exit $rc'
 ok "nginx を更新"
 
 # ---- 4. staging へ -----------------------------------------------------
