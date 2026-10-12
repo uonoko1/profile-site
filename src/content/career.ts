@@ -34,7 +34,7 @@ export const career: Job[] = [
         body: "Scala / Akka HTTP のサービスで発生したメモリの問題を、ヒープダンプと Eclipse MAT で追跡。手順をチームの参照用に記事としてまとめた。",
         link: {
           label: "Scalaアプリケーションから取得したヒープダンプの解析をしてみる",
-          href: "https://daichisakai.net/blog/6937042844e67a430b72c4f2",
+          href: "/blog/scala-heap-dump-analysis",
         },
       },
       {

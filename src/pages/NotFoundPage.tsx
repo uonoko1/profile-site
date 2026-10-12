@@ -22,7 +22,7 @@ export function NotFoundPage() {
         to="/"
         className="mt-8 font-mono text-xs tracking-widest text-accent transition-opacity hover:opacity-70"
       >
-        ← INDEX
+        ← HOME
       </Link>
     </main>
   );

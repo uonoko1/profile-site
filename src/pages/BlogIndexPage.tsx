@@ -19,7 +19,7 @@ export function BlogIndexPage() {
         <div className="grid gap-10 md:grid-cols-[10rem_1fr] md:gap-14">
           <div className="font-mono text-xs tracking-widest text-fg-faint md:pt-2">
             <Link to="/" className="transition-colors hover:text-accent">
-              ← INDEX
+              ← HOME
             </Link>
           </div>
           <div className="min-w-0">

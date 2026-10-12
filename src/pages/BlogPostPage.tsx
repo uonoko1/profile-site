@@ -39,7 +39,7 @@ function PostView({ post }: { post: (typeof posts)[number] }) {
               to="/blog"
               className="font-mono text-xs tracking-widest text-fg-faint transition-colors hover:text-accent"
             >
-              ← WRITING
+              ← BLOG
             </Link>
 
             {post.headings.length > 2 && (

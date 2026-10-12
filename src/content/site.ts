@@ -5,8 +5,12 @@ export const site: Site = {
   nameJa: "酒井 大地",
   role: "Software Engineer",
   tagline: "あったらいい、を形に。",
+  /*
+   * 画面には出さない。検索結果と SNS のカードに出る一文。
+   * ページ本体が名乗りだけなので、ここだけは何者かが分かる長さを保つ。
+   */
   description:
-    "株式会社ヌーラボで Backlog を開発しています。Scala と TypeScript を中心に、パーサーの実装から認証認可の統合、レガシー画面の SPA 移行まで。仕事でもそれ以外でも、あればいいのに、と思ったものを実際に動くところまで持っていくのが好きです。",
+    "酒井大地のサイト。株式会社ヌーラボでソフトウェアエンジニアとして Backlog を開発しています。",
   url: "https://daichisakai.net",
   locale: "ja_JP",
   links: [
