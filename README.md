@@ -28,21 +28,60 @@ pnpm lint
 
 ## 記事を書く
 
-`content/posts/` に `YYYY-MM-DD-<slug>.md` を置く。
+1. `content/posts/` に `YYYY-MM-DD-<slug>.md` を作る
 
-```markdown
----
-title: "記事のタイトル"
-date: 2026-01-15
-slug: my-post
----
+   ```markdown
+   ---
+   title: "記事のタイトル"
+   date: 2026-01-15
+   slug: my-post
+   ---
 
-本文。画像は ./assets/ に置いて ![alt](./assets/foo.png) で参照する。
-```
+   本文をここから書く。
+   ```
 
-`slug` がそのまま URL (`/blog/<slug>/`) になる。
-`pnpm build` すると一覧と記事ページが生成され、コードブロックは
-シンタックスハイライトされる。
+   `slug` がそのまま URL (`/blog/my-post/`) になる。英数字とハイフンで、
+   内容が分かる短い名前にする。ファイル名の日付は並べ替え用で、
+   表示に使うのは frontmatter の `date`。
+
+2. 画像を使うなら `content/posts/assets/` に置いて、本文からは
+   `![説明](./assets/foo.png)` で参照する。ビルド時に `/blog/assets/`
+   へ配置され、パスも書き換わる。
+
+3. `pnpm dev` で確認する (http://localhost:5173/blog/)。
+   記事を保存すると自動で再読み込みされる。
+
+4. commit して push する。
+
+   ```bash
+   git add content/posts && git commit -m "Add post: 記事のタイトル"
+   git push
+   ```
+
+   push すると staging に自動で出る。確認して良ければ本番へ:
+
+   ```bash
+   gh workflow run deploy-production.yml
+   ```
+
+書き終えたら一覧とトップの導線、`sitemap.xml` は自動で更新される。
+手で触るファイルは `.md` ひとつだけ。
+
+### 書けること
+
+- 見出し (`##`〜`####`)、リスト、引用、表
+- コードブロックはシンタックスハイライトされる。
+  対応言語は `src/blog/loader.ts` の `LANGS` にある
+  (Scala / Java / TypeScript / Rust / Go / Python / SQL など)。
+  増やしたいときはそこに足す
+- 見出しが3つ以上あると、記事ページの左に目次が出る
+- 読了時間は本文の文字数から自動で出す (コードブロックは除く)
+
+### 注意
+
+- frontmatter の日付は引用符で囲まなくてよいが、`2026-01-15` の形で書く
+- 本文に `<int>` のような山かっこを裸で書くと HTML として解釈される。
+  バッククォートで囲む
 
 ## デプロイ
 
